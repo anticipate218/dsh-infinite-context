@@ -1,0 +1,46 @@
+{
+  "name": "@liustack/dsh-infinite-context",
+  "version": "1.2.0",
+  "type": "module",
+  "description": "Infinite Context for the DeepSeek Harness: truthful model-capacity reporting, proxy-owned lane handling, context-overflow recovery, and pressure-adaptive delegation — as the window runs low, the model is taught to delegate remaining work to fresh-context subagents (10% warn / 5% critical bands, with optional plugin-driven rescue spawns).",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "context-window",
+    "compaction",
+    "long-context",
+    "subagents",
+    "delegation"
+  ],
+  "author": "DeepSeek Harness user",
+  "license": "MIT",
+  "exports": {
+    ".": "./index.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "index.js",
+    "cordis.patch.yml",
+    "README.md",
+    "DELEGATION-NOTES.md",
+    "locale/*.json",
+    "test/smoke.mjs"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node test/smoke.mjs"
+  },
+  "meta": {
+    "title": "Infinite Context",
+    "description": "Reports the real model context window, ends the per-step native-compaction storm, recovers from context overflow, and as the window runs low teaches the model to delegate to fresh-context subagents (10% warn / 5% critical bands)."
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

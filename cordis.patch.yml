@@ -1,0 +1,97 @@
+# Bundle layer: mount the Infinite Context host plugin.
+#
+# IMPORTANT -- read README.md, "Mounting it". This bundle layer does NOT compose
+# into cordis.yml on the machine this was built for (0 entries, no load error),
+# so the working mount is a `- insert:` entry in the PROFILE patch layer at
+#   <DSH_HOME>/profiles/<profile>/cordis.patch.yml
+# pointing at the source by URL. Two things must be bumped together on every
+# source edit, or the change silently does not load:
+#   1. the insert entry `id`  (insert dedups by id)
+#   2. the URL query          (ESM caches by URL)
+# e.g.  - id: infinite-context-v3
+#         name: file:///D:/Deepseek/ADD-DSH/infinite-context/index.js?v=3
+#
+# The config below is the whole tuning surface.
+#
+# rules[]                  per-route capacity correction, first match wins.
+#   provider               exact id, or a `*` glob (e.g. `modlens-*`, `*`)
+#   model                  exact id, or a `*` glob (e.g. `DeepSeek`, `deepseek-*`)
+#   contextWindow          the REAL total token budget the upstream enforces
+#                          (prompt + requested output). This is the number every
+#                          consumer sizes against: DSH compaction, the token meter,
+#                          the request/context record, and billion-context.
+#   defaultMaxTokens       the output reservation carved out of that budget. Lower
+#                          it to spend more of the window on prompt tokens.
+# overflowRecovery         compact-and-retry when the upstream rejects an oversized
+#                          request, instead of failing the turn.
+#
+# Proxy-owned lane (only relevant when a reversible-compression proxy such as
+# billion-context sits in front of the endpoint):
+#   compactionOwnedByProxy   force the ownership decision. Unset = detected from
+#                            billion-context's own config (dsh.allowDshCompaction),
+#                            which is stronger evidence than the BILLION_CONTEXT_*
+#                            env flags -- the desktop app does not export those.
+#                            true suppresses DSH native compaction; false keeps it.
+#   proxyOwnedContextWindow  the window to REPORT to DSH on a proxy-owned lane.
+#                            Default 8388608. Applied with Math.max against the
+#                            matching rule, so a rule is never shrunk.
+#   widenWhenProxyOwned      set false to report every rule verbatim instead.
+#
+# Why a proxy-owned lane reports a window larger than reality: the proxy
+# compresses what it SENDS upstream, so the raw session surface legitimately
+# exceeds the model window, and DSH has no way to express that. Without this,
+# compaction-basic re-attempts a summarization call the proxy refuses with
+# `403 dsh_compaction_refused` on EVERY step (measured: 1084 refusals, ~40/min).
+# The proxy keeps its own real ceiling -- billion-context's per-model
+# `compress.modelContextLimit` outranks any client-reported window -- so this
+# widening silences the redundant attempt without loosening anything.
+- insert:
+    - id: infinite-context
+      name: dsh-infinite-context
+      config:
+        rules:
+          # The CSU endpoint caps model "DeepSeek" at 131072 tokens TOTAL,
+          # verified against both sides of the budget:
+          #   max_tokens=200000  -> "cannot be greater than max_model_len=
+          #                          max_total_tokens=131072"
+          #   131065 in + 8 out  -> "maximum context length is 131072 tokens"
+          # DSH was told 262144, i.e. exactly 2x the truth. That single wrong
+          # number is what this whole plugin exists to fix.
+          #
+          # modlens-csu is the runtime wrapper modlens mints around the `csu`
+          # provider, so the default model travels this route. Both ids are
+          # listed because either may appear depending on how it was resolved.
+          - provider: modlens-csu
+            model: DeepSeek
+            contextWindow: 131072
+            defaultMaxTokens: 16384
+          - provider: csu
+            model: DeepSeek
+            contextWindow: 131072
+            defaultMaxTokens: 16384
+          # GLM and Qwen are genuinely twice the size (verified: same probe
+          # reports max_total_tokens=262144 for both). Selecting one of them is
+          # the only way to actually double the usable window rather than just
+          # stop overshooting it -- see "Want a genuinely longer context?" in
+          # README.md. Their true window matches what DSH already declares, so
+          # these rules are no-ops today; they are pinned so the number stays
+          # correct if DSH's catalogue changes.
+          - provider: modlens-csu
+            model: GLM
+            contextWindow: 262144
+            defaultMaxTokens: 32768
+          - provider: csu
+            model: GLM
+            contextWindow: 262144
+            defaultMaxTokens: 32768
+          - provider: modlens-csu
+            model: Qwen
+            contextWindow: 262144
+            defaultMaxTokens: 32768
+          - provider: csu
+            model: Qwen
+            contextWindow: 262144
+            defaultMaxTokens: 32768
+        overflowRecovery:
+          enabled: true
+          maxRetriesPerTurn: 2

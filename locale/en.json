@@ -1,0 +1,4 @@
+{
+  "title": "Infinite Context",
+  "description": "Reports the model's real context window and recovers from context overflow by compacting and retrying, so long sessions keep going instead of dying at the wall."
+}
