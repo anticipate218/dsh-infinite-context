@@ -4,6 +4,8 @@
 a [DeepSeek Harness](https://www.deepseek.com/) host plugin that makes long
 sessions survive a fixed-window endpoint.
 
+Source: [github.com/anticipate218/dsh-infinite-context](https://github.com/anticipate218/dsh-infinite-context)
+
 ## Install
 
 ```console
